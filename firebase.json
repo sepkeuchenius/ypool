@@ -29,6 +29,10 @@
       {
         "source": "/user",
         "destination": "/user.html"
+      },
+      {
+        "source": "/all-users",
+        "destination": "/all-users.html"
       }
     ]
   },

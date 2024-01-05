@@ -25,3 +25,7 @@ def create_user_account(req: https_fn.CallableRequest):
         user_ref.set( {req.auth.uid:{"name": req.data["username"]}})
     return req.auth.uid, user_ref.child(req.auth.uid).get()
 
+@https_fn.on_call()
+def get_all_users(req: https_fn.CallableRequest):
+    return [{"uid": uid, "name": d["name"]} for uid, d in user_ref.get().items()]
+    # return [(uid, d["name"]) for uid, d in user_ref.get().items()]

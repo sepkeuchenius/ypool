@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function () {
         firebase.functions().useEmulator("localhost", 5001);
         firebase.auth().onAuthStateChanged(function (loadedUser) {
             if (loadedUser) {
-                console.log(loadedUser)
+                console.log(loadedUser);
                 createUserAccount({"username": loadedUser.displayName});
                 $("#username").text(loadedUser.displayName)
             } 
