@@ -66,3 +66,4 @@ node_modules/
 .env
 
 functions/venv/
+functions/__pycache__/
