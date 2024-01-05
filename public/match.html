@@ -44,9 +44,10 @@
   </head>
   <body>
     <main>
-        <form>
-          <input type="text" placeholder="winner" id="player-1">
-          <input type="text" placeholder="loser" id="player-2">
+        <form action="javascript:match()"> 
+          <input type="text" placeholder="winner" id="winner">
+          <input type="text" placeholder="loser" id="loser">
+          <input type="submit" value="submit">
         </form>
     </main>
 
@@ -88,6 +89,6 @@
         }
       });
     </script>
-    <script src="js/user.js"></script>
+    <script src="js/match.js"></script>
   </body>
 </html>
