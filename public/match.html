@@ -45,8 +45,13 @@
   <body>
     <main>
         <form action="javascript:match()"> 
-          <input type="text" placeholder="winner" id="winner">
-          <input type="text" placeholder="loser" id="loser">
+          <select id="opponent">
+            <option value="" disabled selected>Select your opponent</option>
+          </select><br>
+          <input type="radio" id="won" name="outcome" value="won">
+          <label for="won">Won</label>
+          <input type="radio" id="lost" name="outcome" value="lost">
+          <label for="lost">Lost</label><br>
           <input type="submit" value="submit">
         </form>
     </main>
