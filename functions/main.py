@@ -7,6 +7,7 @@ from firebase_admin import initialize_app
 from firebase_admin import storage, db
 initialize_app()
 user_ref = db.reference("users")
+matches_ref = db.reference("matches")
 #
 #
 # @https_fn.on_request()
@@ -22,10 +23,15 @@ def on_request_example(req:  https_fn.CallableRequest) -> https_fn.Response:
 def create_user_account(req: https_fn.CallableRequest):
     print(req)
     if not user_ref.child(req.auth.uid).get():
-        user_ref.set( {req.auth.uid:{"name": req.data["username"]}})
+        user_ref.update({req.auth.uid:{"name": req.data["username"]}})
     return req.auth.uid, user_ref.child(req.auth.uid).get()
 
 @https_fn.on_call()
 def get_all_users(req: https_fn.CallableRequest):
     return [{"uid": uid, "name": d["name"]} for uid, d in user_ref.get().items()]
-    # return [(uid, d["name"]) for uid, d in user_ref.get().items()]
+
+@https_fn.on_call()
+def save_match(req: https_fn.CallableRequest):
+    matches_ref.push({"winner": req.data["winner"], "loser": req.data["loser"]})
+    return "OK"
+
