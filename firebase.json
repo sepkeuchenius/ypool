@@ -32,9 +32,15 @@
       },
       {
         "source": "/all-users",
-        "destination": "/all-users.html"},{
+        "destination": "/all-users.html"
+      },
+      {
         "source": "/match",
         "destination": "/match.html"
+      },
+      {
+        "source": "/score",
+        "destination": "/score.html"
       }
     ]
   },

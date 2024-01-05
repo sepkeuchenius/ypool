@@ -38,3 +38,10 @@ def save_match(req: https_fn.CallableRequest):
     matches_ref.push({"winner": winner, "loser": loser, "issuer": req.auth.uid})
     return "OK"
 
+@https_fn.on_call()
+def get_score(req: https_fn.CallableRequest):
+    matches = matches_ref.get().values()
+    uid2names = {uid: userinfo["name"] for uid, userinfo in user_ref.get().items()}
+    return [{"winner": uid2names[match["winner"]], "loser": uid2names[match["loser"]], "issuer": uid2names[match["issuer"]]} for match in matches]
+    
+
