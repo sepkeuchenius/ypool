@@ -32,6 +32,9 @@ def get_all_users(req: https_fn.CallableRequest):
 
 @https_fn.on_call()
 def save_match(req: https_fn.CallableRequest):
-    matches_ref.push({"winner": req.data["winner"], "loser": req.data["loser"]})
+    print(req)
+    winner = req.data["opponent"] if req.data["outcome"] == "lost" else req.auth.uid
+    loser = req.data["opponent"] if winner == req.auth.uid else req.auth.uid 
+    matches_ref.push({"winner": winner, "loser": loser, "issuer": req.auth.uid})
     return "OK"
 
