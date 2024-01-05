@@ -4,8 +4,9 @@
 
 from firebase_functions import https_fn
 from firebase_admin import initialize_app
-
-# initialize_app()
+from firebase_admin import storage, db
+initialize_app()
+user_ref = db.reference("users")
 #
 #
 # @https_fn.on_request()
@@ -14,5 +15,13 @@ from firebase_admin import initialize_app
 
 @https_fn.on_call()
 def on_request_example(req:  https_fn.CallableRequest) -> https_fn.Response:
-    return https_fn.Response("Hello world!")
+    return "Hoi"
+
+
+@https_fn.on_call()
+def create_user_account(req: https_fn.CallableRequest):
+    print(req)
+    if not user_ref.child(req.auth.uid).get():
+        user_ref.set( {req.auth.uid:{"name": req.data["username"]}})
+    return req.auth.uid, user_ref.child(req.auth.uid).get()
 
