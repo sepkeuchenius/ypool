@@ -2,7 +2,7 @@
 # To get started, simply uncomment the below code or create your own.
 # Deploy with `firebase deploy`
 
-from firebase_functions import https_fn, https_fn_Callable
+from firebase_functions import https_fn
 from firebase_admin import initialize_app
 
 # initialize_app()
@@ -13,6 +13,6 @@ from firebase_admin import initialize_app
 #     return https_fn.Response("Hello world!")
 
 @https_fn.on_call()
-def on_request_example(req: https_fn_Callable) -> https_fn.Response:
+def on_request_example(req:  https_fn.CallableRequest) -> https_fn.Response:
     return https_fn.Response("Hello world!")
 
