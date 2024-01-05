@@ -4,7 +4,7 @@ function match(){
     const saveMatch = firebase.functions().httpsCallable('save_match');
     outcome = $("input[name='outcome']").val()
     opponent = $("#opponent").val()
-    saveMatch({"opponent":opponent, "outcome":outcome}).then((res)=>{console.log(res)});
+    saveMatch({"opponent":opponent, "outcome":outcome}).then((res)=>{if(res.data == "OK"){window.location.replace("/score")}});
 }
 
 document.addEventListener('DOMContentLoaded', function () {
