@@ -20,23 +20,4 @@ document.addEventListener('DOMContentLoaded', function () {
         })
 
     })
-});
-
-    function login() {
-        var email = document.getElementById('email').value;
-        var password = document.getElementById('password').value;
-
-        firebase.auth().signInWithEmailAndPassword(email, password)
-            .then((userCredential) => {
-                // Signed in
-                var user = userCredential.user;
-                console.log("User logged in:", user);
-                // Redirect or perform additional actions after successful login
-            })
-            .catch((error) => {
-                var errorCode = error.code;
-                var errorMessage = error.message;
-                console.error("Login error:", errorMessage);
-                // Handle login error (display a message to the user, etc.)
-            });
-    }
+})
