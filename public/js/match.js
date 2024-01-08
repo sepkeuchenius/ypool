@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const getAllUsers = firebase.functions().httpsCallable('get_all_users');
     const saveMatch = firebase.functions().httpsCallable('save_match');
     GetAllUsers = firebase.functions().httpsCallable('get_all_users');
-    firebase.functions().useEmulator("localhost", 5001);
     firebase.auth().onAuthStateChanged(function (loadedUser) {
         if (loadedUser) {
             GetAllUsers().then(function (users) {

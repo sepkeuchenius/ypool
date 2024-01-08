@@ -1,6 +1,5 @@
 document.addEventListener('DOMContentLoaded', function () {
     GetAllUsers = firebase.functions().httpsCallable('get_all_users');
-    firebase.functions().useEmulator("localhost", 5001);
     firebase.auth().onAuthStateChanged(function (loadedUser) {
         if (loadedUser) {
             console.log("Test silvan");
