@@ -4,7 +4,7 @@
 
 from firebase_functions import https_fn
 from firebase_admin import initialize_app
-from firebase_admin import storage, db
+from firebase_admin import storage, db, auth
 initialize_app()
 user_ref = db.reference("users")
 matches_ref = db.reference("matches")
@@ -44,4 +44,13 @@ def get_score(req: https_fn.CallableRequest):
     uid2names = {uid: userinfo["name"] for uid, userinfo in user_ref.get().items()}
     return [{"winner": uid2names[match["winner"]], "loser": uid2names[match["loser"]], "issuer": uid2names[match["issuer"]]} for match in matches]
     
+
+@https_fn.on_call()
+def user_exists(req: https_fn.CallableRequest):
+    return  len(auth.get_users(identifiers=[auth.EmailIdentifier(req.data["email"])]).users) > 0
+
+
+@https_fn.on_call()
+def create_user(req: https_fn.CallableRequest):
+    return  auth.create_user(email=req.data["email"], display_name=req.data["display_name"], password=req.data["password"]).uid
 
