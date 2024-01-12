@@ -1,59 +1,67 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Welcome to Firebase Hosting</title>
 
-    <!-- update the version number as needed -->
-    <script defer src="/__/firebase/10.7.0/firebase-app-compat.js"></script>
-    <!-- include only the Firebase features as you need -->
-    <script src="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth__nl.js"></script>
-    <script defer src="/__/firebase/10.7.0/firebase-auth-compat.js"></script>
-    <script defer src="/__/firebase/10.7.0/firebase-database-compat.js"></script>
-    <script defer src="/__/firebase/10.7.0/firebase-firestore-compat.js"></script>
-    <script defer src="/__/firebase/10.7.0/firebase-functions-compat.js"></script>
-    <script defer src="/__/firebase/10.7.0/firebase-messaging-compat.js"></script>
-    <script defer src="/__/firebase/10.7.0/firebase-storage-compat.js"></script>
-    <script defer src="/__/firebase/10.7.0/firebase-analytics-compat.js"></script>
-    <script defer src="/__/firebase/10.7.0/firebase-remote-config-compat.js"></script>
-    <script defer src="/__/firebase/10.7.0/firebase-performance-compat.js"></script>
-    <!-- 
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Welcome to Firebase Hosting</title>
+
+  <!-- update the version number as needed -->
+  <script defer src="/__/firebase/10.7.0/firebase-app-compat.js"></script>
+  <!-- include only the Firebase features as you need -->
+  <script src="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth__nl.js"></script>
+  <script defer src="/__/firebase/10.7.0/firebase-auth-compat.js"></script>
+  <script defer src="/__/firebase/10.7.0/firebase-database-compat.js"></script>
+  <script defer src="/__/firebase/10.7.0/firebase-firestore-compat.js"></script>
+  <script defer src="/__/firebase/10.7.0/firebase-functions-compat.js"></script>
+  <script defer src="/__/firebase/10.7.0/firebase-messaging-compat.js"></script>
+  <script defer src="/__/firebase/10.7.0/firebase-storage-compat.js"></script>
+  <script defer src="/__/firebase/10.7.0/firebase-analytics-compat.js"></script>
+  <script defer src="/__/firebase/10.7.0/firebase-remote-config-compat.js"></script>
+  <script defer src="/__/firebase/10.7.0/firebase-performance-compat.js"></script>
+  <!-- 
       initialize the SDK after all desired features are loaded, set useEmulator to false
       to avoid connecting the SDK to running emulators.
     -->
-    <script defer src="/__/firebase/init.js?useEmulator=true"></script>
-    <link rel="stylesheet" href="css/main.css">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+  <script defer src="/__/firebase/init.js?useEmulator=true"></script>
+  <link rel="stylesheet" href="css/main.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 
 
-  </head>
-  <body>
-    <header>
-      <h3>Y.Pool</h3>
-    </header>
-    <main>
-          <select id="opponent">
-            <option value="" disabled selected>Select your opponent</option>
-          </select><br>
-          <input type="radio" id="won" name="outcome" value="won">
-          <label for="won">Won</label>
-          <input type="radio" id="lost" name="outcome" value="lost">
-          <label for="lost">Lost</label><br>
-          <button onclick="match()">Save</button>
-        </form>
-    </main>
+</head>
 
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        try {
-          let app = firebase.app();
-        } catch (e) {
-          console.error(e);
-          loadEl.textContent = 'Error loading the Firebase SDK, check the console.';
-        }
-      });
-    </script>
-    <script src="js/match.js"></script>
-  </body>
+<body>
+  <header>
+    <h3>Y.Pool</h3>
+  </header>
+  <main>
+    <select id="opponent">
+      <option value="" disabled selected>Select your opponent</option>
+    </select><br>
+    <input type="radio" id="won" name="outcome" value="won">
+      <label for="won">Won</label>
+      <input type="radio" id="lost" name="outcome" value="lost">
+      <label for="lost">Lost</label><br>
+
+    <input type="radio" id="before" name="timeplayed" value="before">
+      <label for="won">Before Lunch</label>
+      <input type="radio" id="after" name="timeplayed" value="after">
+      <label for="lost">After Lunch</label><br>
+    <button onclick="match()">Save</button>
+
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      try {
+        let app = firebase.app();
+      } catch (e) {
+        console.error(e);
+        loadEl.textContent = 'Error loading the Firebase SDK, check the console.';
+      }
+    });
+  </script>
+  <script src="js/match.js"></script>
+</body>
+
 </html>

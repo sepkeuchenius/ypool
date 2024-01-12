@@ -42,12 +42,14 @@ def save_match(req: https_fn.CallableRequest):
     print(req)
     winner = req.data["opponent"] if req.data["outcome"] == "lost" else req.auth.uid
     loser = req.data["opponent"] if winner == req.auth.uid else req.auth.uid
+    timeplayed = req.data["time played"] == "before"
     matches_ref.push(
         {
             "winner": winner,
             "loser": loser,
             "issuer": req.auth.uid,
             "datetime": datetime.datetime.now().isoformat(),
+            "before_lunch": timeplayed,
         }
     )
     return "OK"
@@ -91,9 +93,9 @@ def get_elo_ratings(req: https_fn.CallableRequest):
     for match in matches.values():
         print(match)
         if match["winner"] not in players:
-            players[match["winner"]] = Elo()
+            players[match["winner"]] = Elo(k=32)
         if match["loser"] not in players:
-            players[match["loser"]] = Elo()
+            players[match["loser"]] = Elo(k=32)
         players[match["winner"]].play_game(players[match["loser"]], 1)
     return sorted(
         [(_get_username(player), players[player].elo) for player in players],

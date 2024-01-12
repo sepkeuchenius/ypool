@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function () {
             getElos().then(function(res){
                 for(score_i in res.data){
                     const score = res.data[score_i]
-                    $("#score-table").append(`<tr><td>${Number(score_i) + 1} ${score[0]}</td><td>${score[1]}</td>`)
+                    $("#score-table").append(`<tr><td>${Number(score_i) + 1} ${score[0]}</td><td>${Number(score[1]).toFixed(2)}</td>`)
                 }
             })
             
