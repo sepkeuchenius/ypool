@@ -33,17 +33,23 @@
 </head>
 
 <body>
-  <div id="message">
-    <div id="firebaseui-auth-container"></div>
-    Welcome to the Elite Dashboard of all YPool Heroes.
-  </div>
-  <div id="login-form">
-    <input type="text" id="email" placeholder="email">
-    <button onclick="enteredEmail()" id="next">Next</button>
-    <input type="text" id="display-name" style="display: none;" placeholder="Display Name">
-    <input type="password" id="password" style="display: none;" placeholder="password">
-    <button onclick="createUserOrLogin()" id="login-button" style="display: none;">Login</button>
-  </div>
+  <header>
+    <h3>Y.Pool</h3>
+  </header>
+  <main>
+    <div id="message">
+      <div id="firebaseui-auth-container"></div>
+      Welcome to the Elite Dashboard of all YPool Heroes.
+    </div>
+    <div id="login-form">
+      <input type="text" id="email" placeholder="email">
+      <button onclick="enteredEmail()" id="next">Next</button>
+      <input type="text" id="display-name" style="display: none;" placeholder="Display Name">
+      <input type="password" id="password" style="display: none;" placeholder="password">
+      <button onclick="createUserOrLogin()" id="login-button" style="display: none;">Login</button>
+    </div>
+  </main>
+
   <script>
     document.addEventListener('DOMContentLoaded', function () {
       try {
