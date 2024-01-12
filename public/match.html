@@ -33,7 +33,6 @@
       <h3>Y.Pool</h3>
     </header>
     <main>
-        <form action="javascript:match()"> 
           <select id="opponent">
             <option value="" disabled selected>Select your opponent</option>
           </select><br>
@@ -41,7 +40,7 @@
           <label for="won">Won</label>
           <input type="radio" id="lost" name="outcome" value="lost">
           <label for="lost">Lost</label><br>
-          <input type="submit" value="submit">
+          <button onclick="match()">Save</button>
         </form>
     </main>
 

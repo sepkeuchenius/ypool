@@ -22,9 +22,14 @@ main {
     display: block;
 }
 
+select {
+    padding:5px;
+    margin:10px 0;
+    font-size: 15px
+}
 
 button,
-input,
+input[type=text], input[type=password],
 textarea {
     background-color: var(--white);
     color: var(--black);
