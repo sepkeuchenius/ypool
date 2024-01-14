@@ -6,11 +6,8 @@ from firebase_functions import https_fn
 from firebase_admin import initialize_app
 from firebase_admin import storage, db, auth
 import datetime
-import numpy as np
 from elopy.elo import Elo
-from matplotlib import pyplot
 from typing import Dict
-import mpld3
 
 initialize_app()
 user_ref = db.reference("users")
