@@ -130,9 +130,7 @@ def get_bar_chart(req: https_fn.CallableRequest):
     chart_data = {}
     for match in matches:
         chart_data = _count(match["winner"], "winner", chart_data)
-        chart_data = _count(match["winner"], "player", chart_data)
         chart_data = _count(match["loser"], "loser", chart_data)
-        chart_data = _count(match["loser"], "player", chart_data)
 
     players = list(sorted(chart_data, key=lambda x: chart_data.get(x).get("winner", 0), reverse=True))
     players_data = {
@@ -143,11 +141,7 @@ def get_bar_chart(req: https_fn.CallableRequest):
         "Losses": [
             chart_data[player]["loser"] if "loser" in chart_data[player] else 0
             for player in players
-        ],
-        "Plays": [
-            chart_data[player]["player"] if "player" in chart_data[player] else 0
-            for player in players
-        ],
+        ]
     }
 
     return {
