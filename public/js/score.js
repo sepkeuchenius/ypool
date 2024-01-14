@@ -48,10 +48,11 @@ document.addEventListener('DOMContentLoaded', function () {
                                 text: 'Stats'
                             },
                         },
-                        responsive: true,
+                        // responsive: true,    
                         interaction: {
                             intersect: false,
                         },
+                        maintainAspectRatio: false,
                         scales: {
                             x: {
                               stacked: true,

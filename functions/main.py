@@ -13,18 +13,6 @@ initialize_app()
 user_ref = db.reference("users")
 matches_ref = db.reference("matches")
 
-#
-#
-# @https_fn.on_request()
-# def on_request_example(req: https_fn.Request) -> https_fn.Response:
-#     return https_fn.Response("Hello world!")
-
-
-@https_fn.on_call()
-def on_request_example(req: https_fn.CallableRequest) -> https_fn.Response:
-    return "Hoi"
-
-
 @https_fn.on_call()
 def create_user_account(req: https_fn.CallableRequest):
     print(req)
