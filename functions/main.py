@@ -6,7 +6,11 @@ from firebase_functions import https_fn
 from firebase_admin import initialize_app
 from firebase_admin import storage, db, auth
 import datetime
+import numpy as np
 from elopy.elo import Elo
+from matplotlib import pyplot
+from typing import Dict
+import mpld3
 
 initialize_app()
 user_ref = db.reference("users")
@@ -42,14 +46,12 @@ def save_match(req: https_fn.CallableRequest):
     print(req)
     winner = req.data["opponent"] if req.data["outcome"] == "lost" else req.auth.uid
     loser = req.data["opponent"] if winner == req.auth.uid else req.auth.uid
-    timeplayed = req.data["time played"] == "before"
     matches_ref.push(
         {
             "winner": winner,
             "loser": loser,
             "issuer": req.auth.uid,
             "datetime": datetime.datetime.now().isoformat(),
-            "before_lunch": timeplayed,
         }
     )
     return "OK"
@@ -88,10 +90,9 @@ def create_user(req: https_fn.CallableRequest):
 
 @https_fn.on_call()
 def get_elo_ratings(req: https_fn.CallableRequest):
-    matches: dict = matches_ref.get()
-    players = {}
-    for match in matches.values():
-        print(match)
+    matches = _get_matches()
+    players: Dict[str, Elo] = {}
+    for match in matches:
         if match["winner"] not in players:
             players[match["winner"]] = Elo(k=32)
         if match["loser"] not in players:
@@ -106,3 +107,61 @@ def get_elo_ratings(req: https_fn.CallableRequest):
 
 def _get_username(uid):
     return user_ref.child(uid).get().get("name")
+
+
+def _get_matches() -> list:
+    return matches_ref.get().values()
+
+
+def _count(subject, action, counter) -> dict:
+    if subject in counter and action in counter[subject]:
+        counter[subject][action] += 1
+    elif subject in counter:
+        counter[subject][action] = 1
+    else:
+        counter[subject] = {}
+        counter[subject][action] = 1
+    return counter
+
+
+@https_fn.on_call()
+def get_bar_chart(req: https_fn.CallableRequest):
+    matches = _get_matches()
+    chart_data = {}
+    for match in matches:
+        chart_data = _count(match["winner"], "winner", chart_data)
+        chart_data = _count(match["winner"], "player", chart_data)
+        chart_data = _count(match["loser"], "loser", chart_data)
+        chart_data = _count(match["loser"], "player", chart_data)
+
+    players = chart_data.keys()
+    players_data = {
+        "wins": [
+            chart_data[player]["winner"] if "winner" in chart_data[player] else 0
+            for player in players
+        ],
+        "losses": [
+            chart_data[player]["loser"] if "loser" in chart_data[player] else 0
+            for player in players
+        ],
+        "plays": [
+            chart_data[player]["player"] if "player" in chart_data[player] else 0
+            for player in players
+        ],
+    }
+    x = np.arange(len(players))
+    width = 0.1
+    fig, ax = pyplot.subplots(layout="constrained")
+
+    for index, (attribute, values) in enumerate(players_data.items()):
+        rects = ax.bar(x + width * index, values, width, label=attribute)
+        ax.bar_label(rects, padding=0)
+
+    ax.set_xticks(width + x, map(_get_username, players))
+    ax.legend(loc="upper left", ncols=3)
+
+    fig.set_size_inches(
+        (req.data["w"] - 50) / 96,
+        (req.data["w"] - 50) / 96,
+    )
+    return mpld3.fig_to_html(fig)
