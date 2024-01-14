@@ -134,34 +134,25 @@ def get_bar_chart(req: https_fn.CallableRequest):
         chart_data = _count(match["loser"], "loser", chart_data)
         chart_data = _count(match["loser"], "player", chart_data)
 
-    players = chart_data.keys()
+    players = list(sorted(chart_data, key=lambda x: chart_data.get(x).get("winner", 0), reverse=True))
     players_data = {
-        "wins": [
+        "Wins": [
             chart_data[player]["winner"] if "winner" in chart_data[player] else 0
             for player in players
         ],
-        "losses": [
+        "Losses": [
             chart_data[player]["loser"] if "loser" in chart_data[player] else 0
             for player in players
         ],
-        "plays": [
+        "Plays": [
             chart_data[player]["player"] if "player" in chart_data[player] else 0
             for player in players
         ],
     }
-    x = np.arange(len(players))
-    width = 0.1
-    fig, ax = pyplot.subplots(layout="constrained")
 
-    for index, (attribute, values) in enumerate(players_data.items()):
-        rects = ax.bar(x + width * index, values, width, label=attribute)
-        ax.bar_label(rects, padding=0)
-
-    ax.set_xticks(width + x, map(_get_username, players))
-    ax.legend(loc="upper left", ncols=3)
-
-    fig.set_size_inches(
-        (req.data["w"] - 50) / 96,
-        (req.data["w"] - 50) / 96,
-    )
-    return mpld3.fig_to_html(fig)
+    return {
+        "labels": list(map(_get_username, players)),
+        "sets": [
+            {"label": label, "data": players_data[label]} for label in players_data
+        ],
+    }

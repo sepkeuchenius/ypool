@@ -1,21 +1,17 @@
 var userExists;
 var createUser;
 var login
+const loader = new Loader($("#login-form"))
 document.addEventListener('DOMContentLoaded', function () {
     userExists = firebase.functions().httpsCallable('user_exists');
     createUser = firebase.functions().httpsCallable('create_user');
     window.setTimeout(() => {
         firebase.auth().onAuthStateChanged(function (loadedUser) {
+            loader.stopLoader()
             if (loadedUser) {
                 window.location.replace("/user?id=" + loadedUser.uid)
                 // loadUser({"user": loadedUser})
-            } else {
-                if (!(firebase.auth().currentUser)) {
-
-                }
-
-
-            }
+            } 
         })
 
     })
