@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function () {
         firebase.auth().onAuthStateChanged(function (loadedUser) {
             loader.stopLoader()
             if (loadedUser) {
-                window.location.replace("/user?id=" + loadedUser.uid)
+                window.location.replace("/score")
                 // loadUser({"user": loadedUser})
             } 
         })
