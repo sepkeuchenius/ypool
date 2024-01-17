@@ -23,7 +23,17 @@ document.addEventListener('DOMContentLoaded', function () {
             getElos().then(function (res) {
                 for (score_i in res.data) {
                     const [name, elo] = res.data[score_i]
-                    $("#score-table").append(`<tr><td>${Number(score_i) + 1}. ${name}</td><td>${Number(elo).toFixed(2)}</td>`)
+                    var place = Number(score_i) + 1;
+                    if(place == 1){
+                        place = "&#129351;"
+                    }
+                    else if(place == 2){
+                        place = "&#129352;"
+                    }
+                    else if(place == 3){
+                        place = "&#129353;"
+                    }
+                    $("#score-table").append(`<tr><td>${place}</td><td>${name}</td><td>${Number(elo).toFixed(2)}</td>`)
                 }
 
                 $("#match-table td, #score-table td").each(function (el) {
@@ -63,7 +73,7 @@ document.addEventListener('DOMContentLoaded', function () {
                           }
                     }
                 };
-                const ctx = document.getElementById('bar');
+                const ctx = $("#bar")
                 new Chart(ctx, config)
                 bar_loader.stopLoader()
 
