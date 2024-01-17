@@ -14,14 +14,6 @@ user_ref = db.reference("users")
 matches_ref = db.reference("matches")
 
 @https_fn.on_call()
-def create_user_account(req: https_fn.CallableRequest):
-    print(req)
-    if not user_ref.child(req.auth.uid).get():
-        user_ref.update({req.auth.uid: {"name": req.data["username"]}})
-    return req.auth.uid, user_ref.child(req.auth.uid).get()
-
-
-@https_fn.on_call()
 def get_all_users(req: https_fn.CallableRequest):
     return [{"uid": uid, "name": d["name"]} for uid, d in user_ref.get().items()]
 
@@ -64,13 +56,21 @@ def user_exists(req: https_fn.CallableRequest):
     )
 
 
+def _create_user_account(uid, name):
+    if not user_ref.child(uid).get():
+        user_ref.update({uid: {"name": name}})
+    return uid, user_ref.child(uid).get()
+
+
 @https_fn.on_call()
 def create_user(req: https_fn.CallableRequest):
-    return auth.create_user(
+    uid = auth.create_user(
         email=req.data["email"],
         display_name=req.data["display_name"],
         password=req.data["password"],
     ).uid
+    _create_user_account(uid, req.data["display_name"])
+    return uid
 
 
 @https_fn.on_call()
@@ -117,7 +117,11 @@ def get_bar_chart(req: https_fn.CallableRequest):
         chart_data = _count(match["winner"], "winner", chart_data)
         chart_data = _count(match["loser"], "loser", chart_data)
 
-    players = list(sorted(chart_data, key=lambda x: chart_data.get(x).get("winner", 0), reverse=True))
+    players = list(
+        sorted(
+            chart_data, key=lambda x: chart_data.get(x).get("winner", 0), reverse=True
+        )
+    )
     players_data = {
         "Wins": [
             chart_data[player]["winner"] if "winner" in chart_data[player] else 0
@@ -126,7 +130,7 @@ def get_bar_chart(req: https_fn.CallableRequest):
         "Losses": [
             chart_data[player]["loser"] if "loser" in chart_data[player] else 0
             for player in players
-        ]
+        ],
     }
 
     return {
