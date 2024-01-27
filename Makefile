@@ -5,7 +5,6 @@ install-requirements:
 	firebase login
 
 develop:
-	nvm use 20 || true
 	firebase emulators:start  --import=./db
 
 yeet:

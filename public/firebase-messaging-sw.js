@@ -1,6 +1,8 @@
 
 function onBackgroundMessage() {
-    const messaging = firebase.messaging();
+    const messaging = firebase.messaging().usePublicVapidKey(
+      "BMe2ouKwxdv2lZn23AO95IuEC1UKj7Pr03pbDPaOOF66sEqEyie_slj7MDkWdldXb4NaZJZBeEbEE0KqiNiul-o"
+    );;
   
     // [START messaging_on_background_message]
     messaging.onBackgroundMessage((payload) => {

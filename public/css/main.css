@@ -92,9 +92,9 @@ body {
     margin: 0;
 }
 
-#bar-container {
+#bar-container, #line-container {
     position: relative;
-    width: min(400px, 100%);
+    width: calc(min(400px, 100%) - 20px);
     height: 400px;
 }
 
