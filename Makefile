@@ -5,7 +5,7 @@ install-requirements:
 	firebase login
 
 develop:
-	firebase emulators:start  --import=./db
+	firebase emulators:start  --import=./db --export-on-exit=./db-out
 
 yeet:
 	firebase deploy

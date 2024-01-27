@@ -7,13 +7,15 @@ from firebase_admin import initialize_app
 from firebase_admin import storage, db, auth, messaging, credentials
 import datetime
 from elopy.elo import Elo
-from typing import Dict
+from typing import Dict, List
 
 # cert = credentials.Certificate(cert="ypool-generic-platform-firebase-adminsdk-fmr6u-5f64267170.json")
 app = initialize_app()
 user_ref = db.reference("users")
 matches_ref = db.reference("matches")
+elos_ref = db.reference("elos")
 
+LEARNING_RATE = 32
 
 @https_fn.on_call()
 def subscribe_to_pool(req: https_fn.CallableRequest):
@@ -68,7 +70,18 @@ def save_match(req: https_fn.CallableRequest):
             "datetime": datetime.datetime.now().isoformat(),
         }
     )
+    elos_ref.push(_calc_new_elo_rating(winner, loser))
     return "OK"
+
+
+def _calc_new_elo_rating(winner, loser):
+    rating: dict = list(elos_ref.get().values())[-1]
+    winner_elo = Elo(start_elo=rating.get(winner), k=LEARNING_RATE)
+    loser_elo = Elo(start_elo=rating.get(loser), k=LEARNING_RATE)
+    winner_elo.play_game(loser_elo, 1)
+    rating[winner] = winner_elo.elo
+    rating[loser] = loser_elo.elo
+    return rating
 
 
 @https_fn.on_call()
@@ -119,45 +132,52 @@ def get_elo_ratings(req: https_fn.CallableRequest) -> list:
             key=lambda x: x[1],
             reverse=True,
         ),
-        "history": history,
+        "history": _rewrite_scores(history),
     }
 
 
 def _rewrite_scores(score_history):
-    players_history = {user: [] for user in score_history[0]}
+    players_history = {_get_username(user): [] for user in score_history[0]}
     for match in score_history:
         for player in match:
-            players_history[player].append(match[player])
+            players_history[_get_username(player)].append(match[player])
     return players_history
 
 
+def _remove_passive_players(rating_history: List[dict]):
+    passive_players = list(rating_history[-1].keys())
+    for rating in rating_history:
+        for player in rating:
+            if player in passive_players and rating[player] != 1500:
+                passive_players.remove(player)  # this player is not passive
+    for rating in rating_history:
+        for player in passive_players:
+            del rating[player]
+    return rating_history
+
+
 def _get_elo_table() -> Dict[str, Elo]:
-    players = _get_users()
-    matches = _get_matches()
-    player_scores: Dict[str, Elo] = {player['uid']: Elo(k=32) for player in players}
-    score_history = [{_get_username(uid): player_scores[uid].elo for uid in player_scores}]
-    for match in matches:
-        player_scores[match["winner"]].play_game(player_scores[match["loser"]], 1)
-        score_history.append({_get_username(uid): player_scores[uid].elo for uid in player_scores})
-    return player_scores, _rewrite_scores(score_history)
+    rating_history = list(elos_ref.get().values())
+    rating_history = _remove_passive_players(rating_history)
+    rating = rating_history[-1].copy()
+    for player in rating:
+        rating[player] = Elo(start_elo=rating[player], k=LEARNING_RATE)
+    return rating, rating_history
 
 
 @https_fn.on_call()
 def get_most_efficient_opponent(req: https_fn.CallableRequest):
     user_elo_ratings, _ = _get_elo_table()
-    print(user_elo_ratings)
-    print(req.auth.uid)
     user_rating = user_elo_ratings.get(req.auth.uid)
     if not user_rating:
         return {"most_efficient_opponent": None, "potential_elo": None}
     current_best_opponent = None
     current_best_potential_elo = 0
-    print("got here")
     for player in user_elo_ratings:
         if player == req.auth.uid:
             continue  # cant play myself
-        user_potential_elo = Elo(start_elo=user_rating.elo, k=32)
-        opponent_potential_elo = Elo(start_elo=user_elo_ratings[player].elo, k=31)
+        user_potential_elo = Elo(start_elo=user_rating.elo, k=LEARNING_RATE)
+        opponent_potential_elo = Elo(start_elo=user_elo_ratings[player].elo, k=LEARNING_RATE)
         user_potential_elo.play_game(opponent_potential_elo, 1)
         if user_potential_elo.elo > current_best_potential_elo:
             current_best_opponent = player

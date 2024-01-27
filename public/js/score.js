@@ -63,6 +63,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     data: data,
                     options: {
                         maintainAspectRatio: false,
+                        elements: {
+                            point:{
+                                radius: 0
+                            }
+                        }
                     }
                 };
                 new Chart($("#line"), config)
