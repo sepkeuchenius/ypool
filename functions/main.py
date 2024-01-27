@@ -4,14 +4,32 @@
 
 from firebase_functions import https_fn
 from firebase_admin import initialize_app
-from firebase_admin import storage, db, auth
+from firebase_admin import storage, db, auth, messaging, credentials
 import datetime
 from elopy.elo import Elo
 from typing import Dict
-
-initialize_app()
+# cert = credentials.Certificate(cert="ypool-generic-platform-firebase-adminsdk-fmr6u-5f64267170.json")
+app = initialize_app()
 user_ref = db.reference("users")
 matches_ref = db.reference("matches")
+
+
+@https_fn.on_call()
+def subscribe_to_pool(req: https_fn.CallableRequest):
+    # return messaging.send(
+    #     messaging.Message(
+    #         data={"title": "test"},
+    #         topic="pool",
+    #         notification=messaging.Notification("title", "content"),
+    #     )
+    # )
+    return {
+        "SUCCESS": messaging.subscribe_to_topic(
+            req.data["tokens"], "pool"
+        ).success_count
+        == len(req.data["tokens"])
+    }
+
 
 @https_fn.on_call()
 def get_all_users(req: https_fn.CallableRequest):
@@ -74,7 +92,16 @@ def create_user(req: https_fn.CallableRequest):
 
 
 @https_fn.on_call()
-def get_elo_ratings(req: https_fn.CallableRequest):
+def get_elo_ratings(req: https_fn.CallableRequest) -> list:
+    players = _get_elo_table()
+    return sorted(
+        [(_get_username(player), players[player].elo) for player in players],
+        key=lambda x: x[1],
+        reverse=True,
+    )
+
+
+def _get_elo_table() -> Dict[str, Elo]:
     matches = _get_matches()
     players: Dict[str, Elo] = {}
     for match in matches:
@@ -83,11 +110,55 @@ def get_elo_ratings(req: https_fn.CallableRequest):
         if match["loser"] not in players:
             players[match["loser"]] = Elo(k=32)
         players[match["winner"]].play_game(players[match["loser"]], 1)
-    return sorted(
-        [(_get_username(player), players[player].elo) for player in players],
-        key=lambda x: x[1],
-        reverse=True,
-    )
+    return players
+
+
+@https_fn.on_call()
+def get_most_efficient_opponent(req: https_fn.CallableRequest):
+    user_elo_ratings = _get_elo_table()
+    print(user_elo_ratings)
+    print(req.auth.uid)
+    user_rating = user_elo_ratings.get(req.auth.uid)
+    if not user_rating:
+        return {"most_efficient_opponent": None, "potential_elo": None}
+    current_best_opponent = None
+    current_best_potential_elo = 0
+    print("got here")
+    for player in user_elo_ratings:
+        if player == req.auth.uid:
+            continue  # cant play myself
+        user_potential_elo = Elo(start_elo=user_rating.elo, k=32)
+        opponent_potential_elo = Elo(start_elo=user_elo_ratings[player].elo, k=31)
+        user_potential_elo.play_game(opponent_potential_elo, 1)
+        if user_potential_elo.elo > current_best_potential_elo:
+            current_best_opponent = player
+            current_best_potential_elo = user_potential_elo.elo
+            new_ratings = user_elo_ratings.copy()
+            new_ratings[req.auth.uid] = user_potential_elo
+            new_ratings[current_best_opponent] = opponent_potential_elo
+            print(
+                sorted(
+                    [
+                        (_get_username(player), new_ratings[player].elo)
+                        for player in new_ratings
+                    ],
+                    key=lambda x: x[1],
+                    reverse=True,
+                )
+            )
+            potential_place = [
+                player
+                for player, elo in sorted(
+                    [(player, new_ratings[player].elo) for player in new_ratings],
+                    key=lambda x: x[1],
+                    reverse=True,
+                )
+            ].index(req.auth.uid)
+    return {
+        "most_efficient_opponent": _get_username(current_best_opponent),
+        "potential_elo": current_best_potential_elo,
+        "potential_place": potential_place,
+    }
 
 
 def _get_username(uid):
