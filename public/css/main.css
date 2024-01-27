@@ -97,3 +97,7 @@ body {
     width: min(400px, 100%);
     height: 400px;
 }
+
+#play-hint {
+    display: none;
+}
