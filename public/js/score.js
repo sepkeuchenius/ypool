@@ -138,11 +138,21 @@ function message(payload) {
     });
 }
 
+function requestPermission() {
+    console.log('Requesting permission...');
+    Notification.requestPermission().then((permission) => {
+        if (permission === 'granted') {
+            console.log('Notification permission granted.');
+        }
+    })
+}
+
 function getToken() {
     const messaging = firebase.messaging()
     // [START messaging_get_token]
     // Get registration token. Initially this makes a network call, once retrieved
     // subsequent calls to getToken will return from cache.
+    requestPermission()
     return messaging.getToken({ vapidKey: 'BMe2ouKwxdv2lZn23AO95IuEC1UKj7Pr03pbDPaOOF66sEqEyie_slj7MDkWdldXb4NaZJZBeEbEE0KqiNiul-o' }).then((currentToken) => {
         if (currentToken) {
             // Send the token to your server and update the UI if necessary

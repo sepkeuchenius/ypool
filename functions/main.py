@@ -58,7 +58,7 @@ def send_pool_notification(title, content):
     messaging.send(
         messaging.Message(
             topic="pool",
-            notification=messaging.Notification(title, content),
+            data={"title": title, "body": content},
         )
     )
 
