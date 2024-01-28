@@ -42,6 +42,9 @@
         "source": "/score",
         "destination": "/score.html"
       }
+    ],
+    "headers": [
+      { "source":"/service-worker.js", "headers": [{"key": "Cache-Control", "value": "no-cache"}] }
     ]
   },
   "emulators": {

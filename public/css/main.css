@@ -20,6 +20,8 @@ body {
 
 main {
     padding: 30px;
+    padding-top:60px;
+    /* margin-top:20px; */
 }
 
 #login-form input,
@@ -71,9 +73,9 @@ td {
 
 header {
     width: 100%;
-    background-color: var(--black);
+    background-color: var(--white);
     height: 50px;
-    position: relative;
+    position: fixed;
 }
 
 header h3 {
@@ -100,4 +102,8 @@ body {
 
 #play-hint {
     display: none;
+}
+#ypool-logo {
+    height:30px;
+    vertical-align: -10%;
 }

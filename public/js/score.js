@@ -5,14 +5,14 @@ var getElos;
 var getBarChart;
 var getMostEfficientOpponent;
 var subscribeToPoolNotifications;
-var notifySuccess;
+var registerToken;
 document.addEventListener('DOMContentLoaded', function () {
     const getScore = firebase.functions().httpsCallable('get_score');
     getElos = firebase.functions().httpsCallable('get_elo_ratings');
     getBarChart = firebase.functions().httpsCallable('get_bar_chart');
     getMostEfficientOpponent = firebase.functions().httpsCallable('get_most_efficient_opponent');
     subscribeToPoolNotifications = firebase.functions().httpsCallable('subscribe_to_pool');
-    notifySuccess = firebase.functions().httpsCallable('notify_success');
+    registerToken = firebase.functions().httpsCallable('register_token');
     firebase.auth().onAuthStateChanged(async function (loadedUser) {
         if (loadedUser) {
             await getToken()
@@ -49,13 +49,15 @@ document.addEventListener('DOMContentLoaded', function () {
                         $(this).css("color", "var(--blue)")
                     }
                 })
-                var datasets=[];
-                for(player in res.data.history){
-                    datasets.push({"label": player, "data": res.data.history[player], fill: false,
-                    tension: 0.1})
+                var datasets = [];
+                for (player in res.data.history) {
+                    datasets.push({
+                        "label": player, "data": res.data.history[player], fill: false,
+                        tension: 0.1
+                    })
                 }
                 const data = {
-                    labels: datasets[0]['data'].map((val, index)=>{return index}),
+                    labels: datasets[0]['data'].map((val, index) => { return index }),
                     datasets: datasets,
                 };
                 const config = {
@@ -64,7 +66,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     options: {
                         maintainAspectRatio: false,
                         elements: {
-                            point:{
+                            point: {
                                 radius: 0
                             }
                         }
@@ -119,6 +121,22 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 
+function message(payload) {
+    navigator.serviceWorker.register('firebase-messaging-sw.js');
+    navigator.serviceWorker.ready.then(function (registration) {
+        const notificationTitle = payload.data.title || 'Default Title';
+        const notificationOptions = {
+            body: payload.data.body || 'Default Body',
+            icon: 'assets/ypool.svg', // Set the path to your notification icon
+            image: 'assets/ypool.svg', // Set the path to your notification icon
+            silent: false,
+            data: { url: "https://pool.chatbots.nl" }, //the url which we gonna use later
+            actions: [{ action: "open_url", title: "Read" }]
+        };
+
+        registration.showNotification(notificationTitle, notificationOptions);
+    });
+}
 
 function getToken() {
     const messaging = firebase.messaging()
@@ -133,11 +151,10 @@ function getToken() {
             // subscribeToPoolNotifications({"tokens": [currentToken]}).then((res)=>{
             //     console.log(res.data)
             // })
-            messaging.onMessage((payload) => {
-                console.log('Message received. ', payload);
-            })
+
+            messaging.onMessage(message)
             console.log("registered listener. sending start notification");
-            notifySuccess({"token":currentToken});
+            registerToken({ "token": currentToken });
         } else {
             // Show permission request UI
             console.log('No registration token available. Request permission to generate one.');

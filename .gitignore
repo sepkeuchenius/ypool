@@ -67,3 +67,5 @@ node_modules/
 
 functions/__pycache__/
 functions/venv
+public/firebase-messaging-sw.js
+functions/ypool-generic-platform-firebase-adminsdk-fmr6u-5f64267170.json

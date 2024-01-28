@@ -16,34 +16,31 @@ matches_ref = db.reference("matches")
 elos_ref = db.reference("elos")
 
 LEARNING_RATE = 32
-
-@https_fn.on_call()
-def subscribe_to_pool(req: https_fn.CallableRequest):
-    return {
-        "SUCCESS": messaging.subscribe_to_topic(
-            req.data["tokens"], "pool"
-        ).success_count
-        == len(req.data["tokens"])
-    }
+USERNAMES = user_ref.get()
 
 
 @https_fn.on_call()
+def register_token(req: https_fn.CallableRequest):
+    if (
+        not user_ref.child(req.auth.uid).get().get("notification-tokens")
+        or req.data["token"]
+        not in user_ref.child(req.auth.uid).child("notification-tokens").get().values()
+    ):
+        user_ref.child(req.auth.uid).child("notification-tokens").push(
+            req.data["token"]
+        )
+        notify_success(req)
+        messaging.subscribe_to_topic(req.data["token"], "pool").success_count
+
+
 def notify_success(req: https_fn.CallableRequest):
     return messaging.send(
         messaging.Message(
-            notification=messaging.Notification("title", "content"),
+            data={
+                "title": "Yeah!",
+                "body": "You're setup to receive notifications.",
+            },
             token=req.data["token"],
-        )
-    )
-
-
-@https_fn.on_call()
-def send_test_notification(req: https_fn.CallableRequest):
-    return messaging.send(
-        messaging.Message(
-            data={"title": "test"},
-            topic="pool",
-            notification=messaging.Notification("title", "content"),
         )
     )
 
@@ -57,9 +54,17 @@ def _get_users():
     return [{"uid": uid, "name": d["name"]} for uid, d in user_ref.get().items()]
 
 
+def send_pool_notification(title, content):
+    messaging.send(
+        messaging.Message(
+            topic="pool",
+            notification=messaging.Notification(title, content),
+        )
+    )
+
+
 @https_fn.on_call()
 def save_match(req: https_fn.CallableRequest):
-    print(req)
     winner = req.data["opponent"] if req.data["outcome"] == "lost" else req.auth.uid
     loser = req.data["opponent"] if winner == req.auth.uid else req.auth.uid
     matches_ref.push(
@@ -71,6 +76,10 @@ def save_match(req: https_fn.CallableRequest):
         }
     )
     elos_ref.push(_calc_new_elo_rating(winner, loser))
+    send_pool_notification(
+        "New game has been played!",
+        f"{_get_username(winner)} just beat {_get_username(loser)}",
+    )
     return "OK"
 
 
@@ -177,7 +186,9 @@ def get_most_efficient_opponent(req: https_fn.CallableRequest):
         if player == req.auth.uid:
             continue  # cant play myself
         user_potential_elo = Elo(start_elo=user_rating.elo, k=LEARNING_RATE)
-        opponent_potential_elo = Elo(start_elo=user_elo_ratings[player].elo, k=LEARNING_RATE)
+        opponent_potential_elo = Elo(
+            start_elo=user_elo_ratings[player].elo, k=LEARNING_RATE
+        )
         user_potential_elo.play_game(opponent_potential_elo, 1)
         if user_potential_elo.elo > current_best_potential_elo:
             current_best_opponent = player
@@ -210,8 +221,18 @@ def get_most_efficient_opponent(req: https_fn.CallableRequest):
     }
 
 
+def _reload_usernames():
+    global USERNAMES
+    USERNAMES = user_ref.get()
+    return USERNAMES
+
+
 def _get_username(uid):
-    return user_ref.child(uid).get().get("name")
+    return (
+        USERNAMES.get(uid).get("name")
+        if uid in USERNAMES
+        else _reload_usernames().get(uid).get("name")
+    )
 
 
 def _get_matches() -> list:
