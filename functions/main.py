@@ -1,26 +1,50 @@
-# Welcome to Cloud Functions for Firebase for Python!
-# To get started, simply uncomment the below code or create your own.
-# Deploy with `firebase deploy`
-
 from firebase_functions import https_fn
 from firebase_admin import initialize_app
-from firebase_admin import storage, db, auth, messaging, credentials
-import datetime
-from elopy.elo import Elo
-from typing import Dict, List
+from typing import List
 
-# cert = credentials.Certificate(cert="ypool-generic-platform-firebase-adminsdk-fmr6u-5f64267170.json")
 app = initialize_app()
-user_ref = db.reference("users")
-matches_ref = db.reference("matches")
-elos_ref = db.reference("elos")
 
+START_ELO = 1500
 LEARNING_RATE = 32
-USERNAMES = user_ref.get()
+USERNAMES = None
+LLM = None
+LLM_PARAMS = {
+    "candidate_count": 1,
+    "max_output_tokens": 1024,
+    "temperature": 0.2,
+    "top_p": 0.8,
+    "top_k": 40,
+}
 
 
-@https_fn.on_call()
+def _load_llm():
+    global LLM
+    if not LLM:
+        import vertexai
+        from vertexai.language_models import TextGenerationModel
+        from firebase_admin import credentials
+        vertexai.init(
+            project="ypool-generic-platform",
+            location="us-central1",
+            credentials=credentials.ApplicationDefault().get_credential(),
+        )
+        LLM = TextGenerationModel.from_pretrained("text-bison")
+    return LLM
+
+
+def generate_text(prompt):
+    llm = _load_llm()
+    response = llm.predict(
+        prompt,
+        **LLM_PARAMS,
+    )
+    return response.text
+
+
+@https_fn.on_call(region="europe-west1")
 def register_token(req: https_fn.CallableRequest):
+    from firebase_admin import messaging, db
+    user_ref = db.reference("users")
     if (
         not user_ref.child(req.auth.uid).get().get("notification-tokens")
         or req.data["token"]
@@ -34,6 +58,7 @@ def register_token(req: https_fn.CallableRequest):
 
 
 def notify_success(req: https_fn.CallableRequest):
+    from firebase_admin import messaging
     return messaging.send(
         messaging.Message(
             data={
@@ -45,16 +70,18 @@ def notify_success(req: https_fn.CallableRequest):
     )
 
 
-@https_fn.on_call()
+@https_fn.on_call(region="europe-west1")
 def get_all_users(req: https_fn.CallableRequest):
     return _get_users()
 
 
 def _get_users():
-    return [{"uid": uid, "name": d["name"]} for uid, d in user_ref.get().items()]
+    usernames = _get_usernames()
+    return [{"uid": uid, "name": d["name"]} for uid, d in usernames.items()]
 
 
 def send_pool_notification(title, content):
+    from firebase_admin import messaging
     messaging.send(
         messaging.Message(
             topic="pool",
@@ -63,11 +90,13 @@ def send_pool_notification(title, content):
     )
 
 
-@https_fn.on_call()
+@https_fn.on_call(region="europe-west1")
 def save_match(req: https_fn.CallableRequest):
+    import datetime
+    from firebase_admin import db
     winner = req.data["opponent"] if req.data["outcome"] == "lost" else req.auth.uid
     loser = req.data["opponent"] if winner == req.auth.uid else req.auth.uid
-    matches_ref.push(
+    db.reference("matches").push(
         {
             "winner": winner,
             "loser": loser,
@@ -75,28 +104,36 @@ def save_match(req: https_fn.CallableRequest):
             "datetime": datetime.datetime.now().isoformat(),
         }
     )
+    elos_ref = db.reference("elos")
     elos_ref.push(_calc_new_elo_rating(winner, loser))
+    joke = generate_text(
+        f"Make a joke of 10 words, making fun of {_get_username(winner)} winning a game against {_get_username(loser)}"
+    )
     send_pool_notification(
         "New game has been played!",
-        f"{_get_username(winner)} just beat {_get_username(loser)}",
+        f"{joke}\n{_get_username(winner)} just beat {_get_username(loser)}",
     )
     return "OK"
 
 
 def _calc_new_elo_rating(winner, loser):
+    from elopy.elo import Elo
+    from firebase_admin import db
+    elos_ref = db.reference("elos")
     rating: dict = list(elos_ref.get().values())[-1]
-    winner_elo = Elo(start_elo=rating.get(winner), k=LEARNING_RATE)
-    loser_elo = Elo(start_elo=rating.get(loser), k=LEARNING_RATE)
+    winner_elo = Elo(start_elo=rating.get(winner, START_ELO), k=LEARNING_RATE)
+    loser_elo = Elo(start_elo=rating.get(loser, START_ELO), k=LEARNING_RATE)
     winner_elo.play_game(loser_elo, 1)
     rating[winner] = winner_elo.elo
     rating[loser] = loser_elo.elo
     return rating
 
 
-@https_fn.on_call()
+@https_fn.on_call(region="europe-west1")
 def get_score(req: https_fn.CallableRequest):
-    matches = matches_ref.get().values()
-    uid2names = {uid: userinfo["name"] for uid, userinfo in user_ref.get().items()}
+    matches = _get_matches()
+    usernames = _get_usernames()
+    uid2names = {uid: userinfo["name"] for uid, userinfo in usernames.items()}
     return [
         {
             "winner": uid2names[match["winner"]],
@@ -107,8 +144,9 @@ def get_score(req: https_fn.CallableRequest):
     ]
 
 
-@https_fn.on_call()
+@https_fn.on_call(region="europe-west1")
 def user_exists(req: https_fn.CallableRequest):
+    from firebase_admin import auth
     return (
         len(auth.get_users(identifiers=[auth.EmailIdentifier(req.data["email"])]).users)
         > 0
@@ -116,13 +154,16 @@ def user_exists(req: https_fn.CallableRequest):
 
 
 def _create_user_account(uid, name):
+    from firebase_admin import db
+    user_ref = db.reference("users")
     if not user_ref.child(uid).get():
         user_ref.update({uid: {"name": name}})
     return uid, user_ref.child(uid).get()
 
 
-@https_fn.on_call()
+@https_fn.on_call(region="europe-west1")
 def create_user(req: https_fn.CallableRequest):
+    from firebase_admin import auth
     uid = auth.create_user(
         email=req.data["email"],
         display_name=req.data["display_name"],
@@ -132,7 +173,7 @@ def create_user(req: https_fn.CallableRequest):
     return uid
 
 
-@https_fn.on_call()
+@https_fn.on_call(region="europe-west1")
 def get_elo_ratings(req: https_fn.CallableRequest) -> list:
     players, history = _get_elo_table()
     return {
@@ -145,11 +186,14 @@ def get_elo_ratings(req: https_fn.CallableRequest) -> list:
     }
 
 
-def _rewrite_scores(score_history):
-    players_history = {_get_username(user): [] for user in score_history[0]}
-    for match in score_history:
-        for player in match:
-            players_history[_get_username(player)].append(match[player])
+def _rewrite_scores(score_history: List[dict]):
+    players_history = {_get_username(user): [] for user in score_history[-1]}
+    for rating in score_history:
+        for player in score_history[-1]:
+            player_history = players_history[_get_username(player)]
+            player_history.append(rating.get(player))
+            if len(player_history) >= 2 and player_history[-1] is not None and player_history[-2] is None:
+                player_history[-2] = START_ELO
     return players_history
 
 
@@ -157,7 +201,7 @@ def _remove_passive_players(rating_history: List[dict]):
     passive_players = list(rating_history[-1].keys())
     for rating in rating_history:
         for player in rating:
-            if player in passive_players and rating[player] != 1500:
+            if player in passive_players and rating[player] != START_ELO:
                 passive_players.remove(player)  # this player is not passive
     for rating in rating_history:
         for player in passive_players:
@@ -165,7 +209,10 @@ def _remove_passive_players(rating_history: List[dict]):
     return rating_history
 
 
-def _get_elo_table() -> Dict[str, Elo]:
+def _get_elo_table():
+    from elopy.elo import Elo
+    from firebase_admin import db
+    elos_ref = db.reference("elos")
     rating_history = list(elos_ref.get().values())
     rating_history = _remove_passive_players(rating_history)
     rating = rating_history[-1].copy()
@@ -174,8 +221,10 @@ def _get_elo_table() -> Dict[str, Elo]:
     return rating, rating_history
 
 
-@https_fn.on_call()
+@https_fn.on_call(region="europe-west1")
 def get_most_efficient_opponent(req: https_fn.CallableRequest):
+    from elopy.elo import Elo
+
     user_elo_ratings, _ = _get_elo_table()
     user_rating = user_elo_ratings.get(req.auth.uid)
     if not user_rating:
@@ -221,22 +270,33 @@ def get_most_efficient_opponent(req: https_fn.CallableRequest):
     }
 
 
-def _reload_usernames():
+def _get_usernames():
     global USERNAMES
-    USERNAMES = user_ref.get()
+    if not USERNAMES:
+        return _reload_usernames()
+    else:
+        return USERNAMES
+
+
+def _reload_usernames():
+    from firebase_admin import db
+    global USERNAMES
+    USERNAMES = db.reference("users").get()
     return USERNAMES
 
 
 def _get_username(uid):
+    _get_usernames()
     return (
-        USERNAMES.get(uid).get("name")
+        USERNAMES.get(uid, {}).get("name")
         if uid in USERNAMES
-        else _reload_usernames().get(uid).get("name")
+        else _reload_usernames().get(uid, {}).get("name")
     )
 
 
 def _get_matches() -> list:
-    return matches_ref.get().values()
+    from firebase_admin import db
+    return db.reference("matches").get().values()
 
 
 def _count(subject, action, counter) -> dict:
@@ -250,7 +310,7 @@ def _count(subject, action, counter) -> dict:
     return counter
 
 
-@https_fn.on_call()
+@https_fn.on_call(region="europe-west1")
 def get_bar_chart(req: https_fn.CallableRequest):
     matches = _get_matches()
     chart_data = {}

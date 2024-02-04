@@ -3,15 +3,18 @@ var createUser;
 var login
 const loader = new Loader($("#login-form"))
 document.addEventListener('DOMContentLoaded', function () {
-    userExists = firebase.functions().httpsCallable('user_exists');
-    createUser = firebase.functions().httpsCallable('create_user');
+    userExists = functions.httpsCallable('user_exists');
+    createUser = functions.httpsCallable('create_user');
     window.setTimeout(() => {
-        firebase.auth().onAuthStateChanged(function (loadedUser) {
+        firebase.auth().onAuthStateChanged(async function (loadedUser) {
             loader.stopLoader()
             if (loadedUser) {
+                await requestNotificationPermission()
                 window.location.replace("/score")
-                // loadUser({"user": loadedUser})
-            } 
+            }
+            else {
+                await getNotificationToken();
+            }
         })
 
     })
@@ -20,7 +23,6 @@ document.addEventListener('DOMContentLoaded', function () {
 function enteredEmail() {
     userExists({ "email": $("#email").val() }).then((res) => {
         if (!res.data) {
-            //enter password
             $("#display-name").show();
             $("#login-button").text("Create Account")
         }
@@ -34,10 +36,14 @@ function createUserOrLogin() {
         if (res.data) {
             //account exists
             firebase.auth().signInWithEmailAndPassword($("#email").val(), $("#password").val())
+            .catch((err) => { 
+                $("#wrong-password").show();
+                $("#reset-password").show()
+            })
         }
         else {
-            createUser({ "email": $("#email").val(), "password": $("#password").val(), "display_name": $("#display-name").val() }).then((res)=>{
-                if(res.data){
+            createUser({ "email": $("#email").val(), "password": $("#password").val(), "display_name": $("#display-name").val() }).then((res) => {
+                if (res.data) {
                     firebase.auth().signInWithEmailAndPassword($("#email").val(), $("#password").val())
                 }
             })
@@ -45,6 +51,15 @@ function createUserOrLogin() {
     })
 }
 
-function signOut(){
+function signOut() {
     firebase.auth().signOut();
+}
+
+
+function resetPassword(){
+    firebase.auth().sendPasswordResetEmail($("#email").val()).then((res)=>{
+        $("#reset-sent").show();
+    }).catch((err)=>{
+        $("#reset-failed").show();
+    });
 }

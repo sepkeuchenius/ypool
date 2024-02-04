@@ -5,17 +5,17 @@ var getElos;
 var getBarChart;
 var getMostEfficientOpponent;
 var subscribeToPoolNotifications;
-var registerToken;
+var generateText;
 document.addEventListener('DOMContentLoaded', function () {
-    const getScore = firebase.functions().httpsCallable('get_score');
-    getElos = firebase.functions().httpsCallable('get_elo_ratings');
-    getBarChart = firebase.functions().httpsCallable('get_bar_chart');
-    getMostEfficientOpponent = firebase.functions().httpsCallable('get_most_efficient_opponent');
-    subscribeToPoolNotifications = firebase.functions().httpsCallable('subscribe_to_pool');
-    registerToken = firebase.functions().httpsCallable('register_token');
+    const getScore = functions.httpsCallable('get_score');
+    getElos = functions.httpsCallable('get_elo_ratings');
+    getBarChart = functions.httpsCallable('get_bar_chart');
+    getMostEfficientOpponent = functions.httpsCallable('get_most_efficient_opponent');
+    subscribeToPoolNotifications = functions.httpsCallable('subscribe_to_pool');
+    generateText = functions.httpsCallable('generate_text');
     firebase.auth().onAuthStateChanged(async function (loadedUser) {
         if (loadedUser) {
-            await getToken()
+            await requestNotificationPermission();
             getScore().then(function (matches) {
                 for (_match of matches.data) {
                     $("#match-table").append(`<tr><td>${_match.winner}</td><td>${_match.loser}</td><td>${_match.issuer}</td>`)
@@ -119,60 +119,3 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     })
 });
-
-
-function message(payload) {
-    navigator.serviceWorker.register('firebase-messaging-sw.js');
-    navigator.serviceWorker.ready.then(function (registration) {
-        const notificationTitle = payload.data.title || 'Default Title';
-        const notificationOptions = {
-            body: payload.data.body || 'Default Body',
-            icon: 'assets/ypool.svg', // Set the path to your notification icon
-            image: 'assets/ypool.svg', // Set the path to your notification icon
-            silent: false,
-            data: { url: "https://pool.chatbots.nl" }, //the url which we gonna use later
-            actions: [{ action: "open_url", title: "Read" }]
-        };
-
-        registration.showNotification(notificationTitle, notificationOptions);
-    });
-}
-
-function requestPermission() {
-    console.log('Requesting permission...');
-    Notification.requestPermission().then((permission) => {
-        if (permission === 'granted') {
-            console.log('Notification permission granted.');
-        }
-    })
-}
-
-function getToken() {
-    const messaging = firebase.messaging()
-    // [START messaging_get_token]
-    // Get registration token. Initially this makes a network call, once retrieved
-    // subsequent calls to getToken will return from cache.
-    requestPermission()
-    return messaging.getToken({ vapidKey: 'BMe2ouKwxdv2lZn23AO95IuEC1UKj7Pr03pbDPaOOF66sEqEyie_slj7MDkWdldXb4NaZJZBeEbEE0KqiNiul-o' }).then((currentToken) => {
-        if (currentToken) {
-            // Send the token to your server and update the UI if necessary
-            // ...
-            console.log(currentToken)
-            // subscribeToPoolNotifications({"tokens": [currentToken]}).then((res)=>{
-            //     console.log(res.data)
-            // })
-
-            messaging.onMessage(message)
-            console.log("registered listener. sending start notification");
-            registerToken({ "token": currentToken });
-        } else {
-            // Show permission request UI
-            console.log('No registration token available. Request permission to generate one.');
-            // ...
-        }
-    }).catch((err) => {
-        console.log('An error occurred while retrieving token. ', err);
-        // ...
-    });
-    // [END messaging_get_token]
-}

@@ -48,6 +48,10 @@
       <input type="text" id="display-name" style="display: none;" placeholder="Display Name">
       <input type="password" id="password" style="display: none;" placeholder="password">
       <button onclick="createUserOrLogin()" id="login-button" style="display: none;">Login</button>
+      <p id="wrong-password">Wrong password or email</p>
+      <button onclick="resetPassword()" id="reset-password">Reset Password</button>
+      <p id="reset-sent">Reset link was sent</p>
+      <p id="reset-failed">Reset link could not be sent. Is this a correct email?</p>
     </div>
   </main>
 

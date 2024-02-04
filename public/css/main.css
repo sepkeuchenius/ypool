@@ -107,3 +107,15 @@ body {
     height:30px;
     vertical-align: -10%;
 }
+#wrong-password, #reset-failed {
+    display: none;
+    color: var(--orange);
+    font-style: italic;;
+}
+#login-form #reset-password {
+    display: none;
+}
+#reset-sent {
+    display: none;
+    color: var(--green);
+}
