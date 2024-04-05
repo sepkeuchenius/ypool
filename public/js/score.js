@@ -29,9 +29,17 @@ document.addEventListener('DOMContentLoaded', function () {
             });
             getElos().then(function (res) {
                 console.log(res)
+                var deaths = 0
                 for (score_i in res.data.ranking) {
                     const [name, elo] = res.data.ranking[score_i]
-                    var place = Number(score_i) + 1;
+                    var place = Number(score_i) + 1 - deaths;
+                    const days_ago = res.data.last_plays[name]
+                    var death_style = ""
+                    if (days_ago > 21) {
+                        place = "&#10013;"
+                        deaths += 1;
+                        death_style = "color:gray";
+                    }
                     if (place == 1) {
                         place = "&#129351;"
                     }
@@ -41,7 +49,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     else if (place == 3) {
                         place = "&#129353;"
                     }
-                    $("#score-table").append(`<tr><td>${place}</td><td>${name}</td><td>${Number(elo).toFixed(2)}</td>`)
+                    $("#score-table").append(`<tr><td>${place}</td><td style='${death_style}'>${name}</td><td>${Number(elo).toFixed(2)}</td>`)
                 }
 
                 $("#match-table td, #score-table td").each(function (el) {

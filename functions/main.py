@@ -23,6 +23,7 @@ def _load_llm():
         import vertexai
         from vertexai.language_models import TextGenerationModel
         from firebase_admin import credentials
+
         vertexai.init(
             project="ypool-generic-platform",
             location="us-central1",
@@ -44,6 +45,7 @@ def generate_text(prompt):
 @https_fn.on_call(region="europe-west1")
 def register_token(req: https_fn.CallableRequest):
     from firebase_admin import messaging, db
+
     user_ref = db.reference("users")
     if (
         not user_ref.child(req.auth.uid).get().get("notification-tokens")
@@ -59,6 +61,7 @@ def register_token(req: https_fn.CallableRequest):
 
 def notify_success(req: https_fn.CallableRequest):
     from firebase_admin import messaging
+
     return messaging.send(
         messaging.Message(
             data={
@@ -82,6 +85,7 @@ def _get_users():
 
 def send_pool_notification(title, content):
     from firebase_admin import messaging
+
     messaging.send(
         messaging.Message(
             topic="pool",
@@ -94,6 +98,7 @@ def send_pool_notification(title, content):
 def save_match(req: https_fn.CallableRequest):
     import datetime
     from firebase_admin import db
+
     winner = req.data["opponent"] if req.data["outcome"] == "lost" else req.auth.uid
     loser = req.data["opponent"] if winner == req.auth.uid else req.auth.uid
     db.reference("matches").push(
@@ -119,6 +124,7 @@ def save_match(req: https_fn.CallableRequest):
 def _calc_new_elo_rating(winner, loser):
     from elopy.elo import Elo
     from firebase_admin import db
+
     elos_ref = db.reference("elos")
     rating: dict = list(elos_ref.get().values())[-1]
     winner_elo = Elo(start_elo=rating.get(winner, START_ELO), k=LEARNING_RATE)
@@ -147,6 +153,7 @@ def get_score(req: https_fn.CallableRequest):
 @https_fn.on_call(region="europe-west1")
 def user_exists(req: https_fn.CallableRequest):
     from firebase_admin import auth
+
     return (
         len(auth.get_users(identifiers=[auth.EmailIdentifier(req.data["email"])]).users)
         > 0
@@ -155,6 +162,7 @@ def user_exists(req: https_fn.CallableRequest):
 
 def _create_user_account(uid, name):
     from firebase_admin import db
+
     user_ref = db.reference("users")
     if not user_ref.child(uid).get():
         user_ref.update({uid: {"name": name}})
@@ -164,6 +172,7 @@ def _create_user_account(uid, name):
 @https_fn.on_call(region="europe-west1")
 def create_user(req: https_fn.CallableRequest):
     from firebase_admin import auth
+
     uid = auth.create_user(
         email=req.data["email"],
         display_name=req.data["display_name"],
@@ -175,7 +184,7 @@ def create_user(req: https_fn.CallableRequest):
 
 @https_fn.on_call(region="europe-west1")
 def get_elo_ratings(req: https_fn.CallableRequest) -> list:
-    players, history = _get_elo_table()
+    players, history, last_plays = _get_elo_table()
     return {
         "ranking": sorted(
             [(_get_username(player), players[player].elo) for player in players],
@@ -183,6 +192,7 @@ def get_elo_ratings(req: https_fn.CallableRequest) -> list:
             reverse=True,
         ),
         "history": _rewrite_scores(history),
+        "last_plays": {_get_username(player): last_plays[player] for player in last_plays}
     }
 
 
@@ -192,7 +202,11 @@ def _rewrite_scores(score_history: List[dict]):
         for player in score_history[-1]:
             player_history = players_history[_get_username(player)]
             player_history.append(rating.get(player))
-            if len(player_history) >= 2 and player_history[-1] is not None and player_history[-2] is None:
+            if (
+                len(player_history) >= 2
+                and player_history[-1] is not None
+                and player_history[-2] is None
+            ):
                 player_history[-2] = START_ELO
     return players_history
 
@@ -209,23 +223,35 @@ def _remove_passive_players(rating_history: List[dict]):
     return rating_history
 
 
+def _find_last_play(matches: List[dict], uid):
+    import datetime
+    for _match in reversed(matches):
+        if uid in _match.values():  # winner loser or issuer
+            return (datetime.datetime.now() - datetime.datetime.fromisoformat(_match.get("datetime"))).days
+
+
 def _get_elo_table():
     from elopy.elo import Elo
     from firebase_admin import db
+
+    matches = _get_matches()
     elos_ref = db.reference("elos")
     rating_history = list(elos_ref.get().values())
     rating_history = _remove_passive_players(rating_history)
     rating = rating_history[-1].copy()
+    last_plays = {
+        player: _find_last_play(matches, player) for player in rating
+    }
     for player in rating:
         rating[player] = Elo(start_elo=rating[player], k=LEARNING_RATE)
-    return rating, rating_history
+    return rating, rating_history, last_plays
 
 
 @https_fn.on_call(region="europe-west1")
 def get_most_efficient_opponent(req: https_fn.CallableRequest):
     from elopy.elo import Elo
 
-    user_elo_ratings, _ = _get_elo_table()
+    user_elo_ratings, _, _ = _get_elo_table()
     user_rating = user_elo_ratings.get(req.auth.uid)
     if not user_rating:
         return {"most_efficient_opponent": None, "potential_elo": None}
@@ -280,6 +306,7 @@ def _get_usernames():
 
 def _reload_usernames():
     from firebase_admin import db
+
     global USERNAMES
     USERNAMES = db.reference("users").get()
     return USERNAMES
@@ -296,6 +323,7 @@ def _get_username(uid):
 
 def _get_matches() -> list:
     from firebase_admin import db
+
     return db.reference("matches").get().values()
 
 
