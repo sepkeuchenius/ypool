@@ -1,3 +1,4 @@
 firebase_functions~=0.1.0
 elopy
 google-cloud-aiplatform==1.40.0
+pydantic

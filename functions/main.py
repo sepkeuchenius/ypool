@@ -17,6 +17,20 @@ LLM_PARAMS = {
 }
 
 
+from pydantic import BaseModel, Field
+from typing import Optional, Self
+import datetime as dt
+class PlayedMatch(BaseModel):
+    issuer: str
+    winner: str
+    loser: str
+    datetime: Optional[dt.datetime] = Field(None)
+
+class Match(BaseModel):
+    players: list[str]
+    counterpart: Optional[Self] = Field(None)
+    played_match: Optional[PlayedMatch] = Field(None)
+
 def _load_llm():
     global LLM
     if not LLM:
@@ -142,9 +156,9 @@ def get_score(req: https_fn.CallableRequest):
     uid2names = {uid: userinfo["name"] for uid, userinfo in usernames.items()}
     return [
         {
-            "winner": uid2names[match["winner"]],
-            "loser": uid2names[match["loser"]],
-            "issuer": uid2names[match["issuer"]],
+            "winner": uid2names[match.winner],
+            "loser": uid2names[match.loser],
+            "issuer": uid2names[match.issuer],
         }
         for match in matches
     ]
@@ -223,20 +237,23 @@ def _remove_passive_players(rating_history: List[dict]):
     return rating_history
 
 
-def _find_last_play(matches: List[dict], uid):
+def _find_last_play(matches: List[PlayedMatch], uid):
     import datetime
     for _match in reversed(matches):
-        if uid in _match.values():  # winner loser or issuer
-            return (datetime.datetime.now() - datetime.datetime.fromisoformat(_match.get("datetime"))).days
+        if uid in _match.model_dump().values():  # winner loser or issuer
+            return (datetime.datetime.now() - _match.datetime).days
 
+
+def _get_elo_history():
+    from firebase_admin import db
+    elos_ref = db.reference("elos")
+    rating_history = list(elos_ref.get().values())
+    return rating_history
 
 def _get_elo_table():
     from elopy.elo import Elo
-    from firebase_admin import db
-
     matches = _get_matches()
-    elos_ref = db.reference("elos")
-    rating_history = list(elos_ref.get().values())
+    rating_history = _get_elo_history()
     rating_history = _remove_passive_players(rating_history)
     rating = rating_history[-1].copy()
     last_plays = {
@@ -321,10 +338,9 @@ def _get_username(uid):
     )
 
 
-def _get_matches() -> list:
+def _get_matches() -> list[PlayedMatch]:
     from firebase_admin import db
-
-    return db.reference("matches").get().values()
+    return [PlayedMatch.model_validate(match) for match in db.reference("matches").get().values()]
 
 
 def _count(subject, action, counter) -> dict:
@@ -343,8 +359,8 @@ def get_bar_chart(req: https_fn.CallableRequest):
     matches = _get_matches()
     chart_data = {}
     for match in matches:
-        chart_data = _count(match["winner"], "winner", chart_data)
-        chart_data = _count(match["loser"], "loser", chart_data)
+        chart_data = _count(match.winner, "winner", chart_data)
+        chart_data = _count(match.loser, "loser", chart_data)
 
     players = list(
         sorted(
@@ -368,3 +384,143 @@ def get_bar_chart(req: https_fn.CallableRequest):
             {"label": label, "data": players_data[label]} for label in players_data
         ],
     }
+
+
+class MonthMatches(BaseModel):
+    year: int
+    month: int
+    matches: list[PlayedMatch]
+    last_elo: dict
+
+def _calc_monthly_matches(matches: list[PlayedMatch], elos: list[dict])->List[MonthMatches]:
+    tournies:list[MonthMatches] = []
+    for index,match in enumerate(matches):
+        if match.datetime:
+            if len(tournies) > 0 and match.datetime.year == tournies[-1].year and match.datetime.month == tournies[-1].month:
+                tournies[-1].matches.append(match)
+                tournies[-1].last_elo = elos[index]
+            else:
+                tournies.append(MonthMatches(
+                    year=match.datetime.year,
+                    month=match.datetime.month,
+                    matches=[match],
+                    last_elo=elos[index]
+                ))
+    return tournies
+
+
+
+class Round(BaseModel):
+    matches: list[Match]
+    played: list[PlayedMatch]
+    closed: bool
+    
+class Tourny(BaseModel):
+    year: int
+    month: int
+    rounds: list[Round]
+
+
+def calc_tourny_scheme(month_matches: MonthMatches, previous_month_matches: MonthMatches) -> Tourny:
+    # get players
+    players = []
+    for match in previous_month_matches.matches:
+        if match.winner not in players:
+            players.append(match.winner)
+        if match.loser not in players:
+            players.append(match.loser)
+    
+    # sort them by elo
+    players = sorted(players, key=previous_month_matches.last_elo.get, reverse=True)
+    print(players)
+    max_players = 4
+    #check if there are four
+    if len(players) < max_players:
+        return None
+
+    tourny_players = players[:max_players]
+    import math
+        
+
+    first_matches = [Match(players=[tourny_players[-(i+1)], tourny_players[i]]) for i in range(int(len(tourny_players)/2))]
+    first_round = Round(matches=first_matches, played=[], closed=False)
+    rounds = int(math.log2(max_players))
+    tourny = Tourny(year = month_matches.year, month=month_matches.month, rounds = [Round(matches=[], played=[], closed=False) for i in range(rounds)])
+    tourny.rounds[0] = first_round
+
+    tourny = play_tourny(tourny, first_round, matches = month_matches.matches, last_match_index=0)
+    return tourny
+    
+
+
+def make_counterparts(round:Round):
+    if len(round.matches) > 1:
+        for index, match in enumerate(round.matches):
+            if index % 2 == 0:
+                # make counterparts
+                match.counterpart = round.matches[index + 1]
+                round.matches[index + 1].counterpart = match
+    return round
+
+def play_tourny(tourny: Tourny, round: Round, matches: list[PlayedMatch], last_match_index=0):
+    next_round = tourny.rounds[tourny.rounds.index(round) + 1] if tourny.rounds.index(round) < len(tourny.rounds) -1 else None
+    round = make_counterparts(round)
+    print(len(round.matches))
+    for match in round.matches:
+        # check if it's already played by going through the list of matches
+        for index, played_match in enumerate(matches, start=last_match_index):
+            if played_match.winner in match.players and played_match.loser in match.players:
+                # note when the last match was played
+                if index > last_match_index:
+                    last_match_index = index
+            
+                # match has been played!
+                round.played.append(played_match)
+                match.played_match = played_match
+                if not match.counterpart:
+                    # this was the final!
+                    round.closed = True
+                    print("tourny completed!")
+                    print(_get_username(played_match.winner))
+                    return tourny
+                if match.counterpart.played_match:
+                    # the match and its counterpart have been played. Schedule a new match!
+                    if next_round:
+                        print('appending')
+                        next_round.matches.append(Match(players=[
+                            played_match.winner, match.counterpart.played_match.winner
+                        ]))
+                        break
+                    else:
+                        print(len(tourny.rounds))
+                        print(tourny.rounds.index(round))
+                        print(len(round.matches))
+                        raise ValueError("Why does this match have a counterpart?")
+     
+    # check if all the matches have been played
+    if all([match.played_match is not None for match in round.matches]):
+        # round done!
+        round.closed = True
+        return play_tourny(tourny=tourny, round=next_round, matches=matches, last_match_index=last_match_index)
+    
+    else:
+        print("not all matches have been played in round")
+        if next_round: # make sure the next round has counterparts
+            make_counterparts(next_round)
+        return tourny
+
+
+
+@https_fn.on_call(region="europe-west1")
+def get_tournies(req: https_fn.CallableRequest):
+    matches = _get_matches()
+    elos = _get_elo_history()
+    assert len(elos) == len(elos)
+    monthly_matches = _calc_monthly_matches(matches, elos)
+    print(len(monthly_matches))
+    for index, month in enumerate(monthly_matches):
+        if index > 0:
+            tourny = calc_tourny_scheme(month, previous_month_matches=monthly_matches[index -1])
+            print([_get_username(player) for round in tourny.rounds for match in round.matches for player in match.players])
+
+
