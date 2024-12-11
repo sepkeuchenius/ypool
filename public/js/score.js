@@ -5,10 +5,12 @@ var getElos;
 var getBarChart;
 var getMostEfficientOpponent;
 var subscribeToPoolNotifications;
+var getTournies;
 var generateText;
 document.addEventListener('DOMContentLoaded', function () {
     const getScore = functions.httpsCallable('get_score');
     getElos = functions.httpsCallable('get_elo_ratings');
+    getTournies = functions.httpsCallable('get_tournies');
     getBarChart = functions.httpsCallable('get_bar_chart');
     getMostEfficientOpponent = functions.httpsCallable('get_most_efficient_opponent');
     subscribeToPoolNotifications = functions.httpsCallable('subscribe_to_pool');
@@ -50,6 +52,28 @@ document.addEventListener('DOMContentLoaded', function () {
                         place = "&#129353;"
                     }
                     $("#score-table").append(`<tr><td>${place}</td><td style='${death_style}'>${name}</td><td>${Number(elo).toFixed(2)}</td>`)
+                }
+                deaths = 0
+                for (score_i in res.data.month_ranking) {
+                    console.log(score_i)
+                    const [name, elo] = res.data.month_ranking[score_i]
+                    var place = Number(score_i) + 1 - deaths;
+                    const days_ago = res.data.last_plays[name]
+                    var death_style = ""
+                    if (days_ago > 21) {
+                        deaths += 1;
+                        continue
+                    }
+                    if (place == 1) {
+                        place = "&#129351;"
+                    }
+                    else if (place == 2) {
+                        place = "&#129352;"
+                    }
+                    else if (place == 3) {
+                        place = "&#129353;"
+                    }
+                    $("#monthly-score-table").append(`<tr><td>${place}</td><td style='${death_style}'>${name}</td><td>${Number(elo).toFixed(2)}</td>`)
                 }
 
                 $("#match-table td, #score-table td").each(function (el) {
